@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Espace animateur · Évaluation avant / après</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="bar-top">
+  <div class="bar-in">
+    <div class="brand"><span class="logo">◔</span><div>Espace animateur<small id="sous-titre">Évaluation avant / après</small></div></div>
+    <nav class="tabs" id="tabs" hidden>
+      <button class="tab-btn on" data-tab="acces">Accès</button>
+      <button class="tab-btn" data-tab="direct">En direct</button>
+      <button class="tab-btn" data-tab="compare">Avant → Après</button>
+      <button class="tab-btn" data-tab="participants">Participants</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card gate" id="gate">
+    <p class="eyebrow">Espace animateur</p>
+    <h1>Ouvrir le tableau de bord</h1>
+    <p class="muted" id="gate-texte" style="margin-top:6px">Saisissez la clé animateur définie dans le script Google.</p>
+    <form class="row-inline" id="gate-form">
+      <input type="password" id="cle" placeholder="Clé animateur" autocomplete="current-password">
+      <button class="btn" type="submit">Ouvrir</button>
+    </form>
+    <p class="msg" id="gate-msg" role="alert"></p>
+    <p class="small" style="margin-top:22px"><a href="#" id="demo-lien">Voir une démonstration avec des données fictives</a></p>
+  </section>
+
+  <div id="dash" hidden>
+    <div class="banner test" id="demo-banner" hidden><b>Mode démonstration.</b> Ces données sont fictives : elles montrent le rendu avec un groupe de 14 personnes.</div>
+    <div class="toolbar">
+      <select id="f-groupe" aria-label="Groupe"></select>
+      <span class="grow"></span>
+      <label class="chk"><input type="checkbox" id="auto" checked> <span class="live-dot"></span>Direct</label>
+      <button class="btn ghost sm" id="refresh" type="button">↻ Actualiser</button>
+      <button class="btn ghost sm" id="csv" type="button">Export CSV</button>
+      <button class="btn sm" id="pdf" type="button">⬇ Synthèse PDF</button>
+    </div>
+    <section id="tab-acces"></section>
+    <section id="tab-direct" hidden></section>
+    <section id="tab-compare" hidden></section>
+    <section id="tab-participants" hidden></section>
+  </div>
+</main>
+
+<div class="projection" id="projection" hidden title="Cliquer pour fermer">
+  <p class="phase" id="proj-phase"></p>
+  <h2>Scannez pour répondre</h2>
+  <canvas id="proj-canvas"></canvas>
+  <p class="muted" id="proj-url"></p>
+</div>
+
+<script src="config.js"></script>
+<script src="assets/common.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/pdf.js"></script>
+<script src="assets/animateur.js"></script>
+</body>
+</html>
