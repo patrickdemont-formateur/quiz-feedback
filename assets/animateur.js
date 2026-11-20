@@ -94,7 +94,7 @@
   function vAcces() {
     var g = F.qrGroupe !== null ? F.qrGroupe : (typeof F.groupe === 'string' ? F.groupe : '');
     var carte = function (ph, titre, cls) {
-      return '<div class="qrcard ' + cls + '"><p class="eyebrow">' + titre + '</p><canvas id="qr-' + ph + '" width="300" height="300"></canvas>' +
+      return '<div class="qrcard ' + cls + '"><h2 class="qr-titre"><i aria-hidden="true"></i>' + titre + '</h2><canvas id="qr-' + ph + '" width="300" height="300"></canvas>' +
         '<p class="url" id="url-' + ph + '"></p><div class="actions"><button class="btn sm" data-proj="' + ph + '">Projeter</button>' +
         '<button class="btn ghost sm" data-png="' + ph + '">PNG</button><button class="btn ghost sm" data-copy="' + ph + '">Copier le lien</button></div></div>';
     };
@@ -102,7 +102,7 @@
       '<label class="field" for="qr-g" style="display:block;font-weight:700;margin:18px 0 8px">Nom du groupe (facultatif)</label>' +
       '<input type="text" id="qr-g" maxlength="40" placeholder="Par exemple : Formateurs-J2" value="' + esc(g) + '" style="max-width:360px">' +
       '<p class="hint" style="font-size:.85rem;color:var(--muted);margin-top:8px">Ce nom est inscrit dans les QR codes et dans le Google Sheet. Il permet de filtrer les résultats par groupe.</p></div>' +
-      '<div class="qrcards">' + carte('avant', 'AVANT la séquence', 'av') + carte('apres', 'APRÈS la séquence', 'ap') + '</div>';
+      '<div class="qrcards">' + carte('avant', 'Avant la séquence', 'av') + carte('apres', 'Après la séquence', 'ap') + '</div>';
   }
   function dessinerQR(canvas, texte) {
     if (!canvas || typeof qrcode !== 'function') return;
@@ -110,7 +110,7 @@
     var n = qr.getModuleCount(), marge = 4, cell = Math.max(1, Math.floor(1024 / (n + 2 * marge))), size = cell * (n + 2 * marge);
     canvas.width = canvas.height = size;
     var ctx = canvas.getContext && canvas.getContext('2d'); if (!ctx) return;
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size); ctx.fillStyle = '#141B34';
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size); ctx.fillStyle = '#17223B';
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (qr.isDark(r, c)) ctx.fillRect((c + marge) * cell, (r + marge) * cell, cell, cell);
   }
   function majQR() {
@@ -123,7 +123,7 @@
     var stats = '<div class="cards3"><div class="stat avant"><div class="k">Réponses « avant »</div><div class="v">' + A.nA + '</div></div>' +
       '<div class="stat apres"><div class="k">Réponses « après »</div><div class="v">' + A.nB + '</div></div>' +
       '<div class="stat pairs"><div class="k">Participants sur les deux temps</div><div class="v">' + A.pairs.length + '</div></div></div>';
-    var seg = '<div class="titre-bloc"><h2>Résultats collectifs</h2><div class="seg"><button data-phase="avant"' + (phase === 'avant' ? ' class="on"' : '') + '>Avant</button><button data-phase="apres"' + (phase === 'apres' ? ' class="on"' : '') + '>Après</button></div></div>';
+    var seg = '<div class="titre-bloc"><h2>Résultats collectifs</h2><div class="seg" role="group" aria-label="Phase affichée"><button type="button" data-phase="avant" aria-pressed="' + (phase === 'avant') + '"' + (phase === 'avant' ? ' class="on"' : '') + '>Avant</button><button type="button" data-phase="apres" aria-pressed="' + (phase === 'apres') + '"' + (phase === 'apres' ? ' class="on"' : '') + '>Après</button></div></div>';
     if (!list.length) return stats + seg + vide('En attente des premières réponses « ' + (phase === 'avant' ? 'avant' : 'après') + ' »…');
     var n = list.length;
     var situ = Q.filter(function (q) { return q.type === 'qcm' || q.type === 'vraifaux'; }).map(function (q) {
@@ -240,7 +240,7 @@
   }
   function montrer(t) {
     F.tab = t;
-    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === t); });
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === t); if (b.dataset.tab === t) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     ['acces', 'direct', 'compare', 'participants'].forEach(function (n) { $('#tab-' + n).hidden = n !== t; });
     $('.toolbar').style.display = t === 'acces' ? 'none' : '';
     U.remplir($('#tab-' + t));
@@ -297,9 +297,9 @@
       prat: dimQ('pratiques').map(function (q) { return { court: q.court, avant: meanQ(q, G.sa), apres: meanQ(q, G.sb) }; }),
       participants: A.parts.map(function (p) { return { prenom: p.prenom, kA: p.sa ? p.sa.connaissances.ok : null, kB: p.sb ? p.sb.connaissances.ok : null, cA: p.sa ? p.sa.confiance : null, cB: p.sb ? p.sb.confiance : null }; }),
       engagements: G.sb.filter(function (r) { return r.rep.x3; }).map(function (r) { return { prenom: r.prenom, texte: r.rep.x3 }; }) };
-    btn.disabled = true; var t = btn.textContent; btn.textContent = 'Préparation…';
+    btn.disabled = true; var t = btn.innerHTML; btn.textContent = 'Préparation…';
     window.PDFKit.synthese(data).then(function (doc) { doc.save('synthese-' + themeId + '.pdf'); })
-      .catch(function (e) { alert('PDF indisponible : ' + e.message); }).then(function () { btn.disabled = false; btn.textContent = t; });
+      .catch(function (e) { alert('PDF indisponible : ' + e.message); }).then(function () { btn.disabled = false; btn.innerHTML = t; });
   }
 
   /* ================= Événements ================= */
@@ -326,9 +326,9 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.dataset.phase) { F.phase = b.dataset.phase; afficher(true); }
     if (b.id === 'reveal') { F.revele = !F.revele; afficher(true); }
-    if (b.dataset.proj) { var ph = b.dataset.proj; dessinerQR($('#proj-canvas'), lien(ph)); $('#proj-phase').textContent = ph === 'avant' ? 'Avant la séquence' : 'Après la séquence'; $('#proj-url').textContent = lien(ph); $('#projection').hidden = false; }
+    if (b.dataset.proj) { var ph = b.dataset.proj; dessinerQR($('#proj-canvas'), lien(ph)); $('#projection').dataset.ph = ph; $('#proj-phase').textContent = ph === 'avant' ? 'Avant la séquence' : 'Après la séquence'; $('#proj-url').textContent = lien(ph); $('#projection').hidden = false; }
     if (b.dataset.png) { var a = document.createElement('a'); a.download = 'qr-' + b.dataset.png + '.png'; a.href = $('#qr-' + b.dataset.png).toDataURL('image/png'); a.click(); }
-    if (b.dataset.copy) { var t = lien(b.dataset.copy); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copié ✓'; }, function () { window.prompt('Copiez ce lien :', t); }); }
+    if (b.dataset.copy) { var t = lien(b.dataset.copy); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = 'Copié'; }, function () { window.prompt('Copiez ce lien :', t); }); }
     if (b.id === 'del') {
       var ch = A.parts.filter(function (p) { return F.sel[p.key]; });
       if (!ch.length) { F.msg = { t: 'err', m: 'Cochez au moins un participant.' }; afficher(true); return; }
