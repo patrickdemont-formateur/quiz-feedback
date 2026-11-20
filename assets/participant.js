@@ -11,6 +11,9 @@
   var theme, Q, timer = null, lastPct = 0;
   var st = { screen: 'accueil', i: 0, prenom: '', groupe: groupeUrl, rep: {}, envoi: { etat: 'idle' }, avant: null, sid: null };
 
+  /* La phase pilote la couleur de toute l'interface : gris = avant, indigo = après (voir style.css) */
+  document.body.classList.add('ph-' + phase);
+
   /* ---------- stockage local (sur l'appareil du stagiaire) ---------- */
   var kAvant = function () { return 'av:' + themeId + ':' + U.norm(st.prenom); };
   var kBrouillon = function () { return 'dr:' + themeId + ':' + phase; };
@@ -20,50 +23,74 @@
   function brouillon() { lsSet(kBrouillon(), { prenom: st.prenom, groupe: st.groupe, i: st.i, rep: st.rep }); }
   var uid = function () { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 's' + Date.now() + Math.random().toString(16).slice(2); };
 
+  /* ---------- icônes vectorielles (aucun emoji) ---------- */
+  var D = {
+    check: 'M4 10.5l4 4 8-9', droite: 'M4 10h12M11 5l5 5-5 5', gauche: 'M16 10H4M9 5l-5 5 5 5',
+    fleche: 'M3 10h14M12 5l5 5-5 5', bas: 'M5 8l5 5 5-5', dl: 'M10 3v10M5.5 9l4.5 4.5L14.5 9M4 17h12',
+    croix: 'M5 5l10 10M15 5L5 15', cadenas: 'M6 9V6.5a4 4 0 018 0V9M4.5 9h11v8h-11z'
+  };
+  function svg(d, o) {
+    o = o || {};
+    return '<svg' + (o.c ? ' class="' + o.c + '"' : '') + ' width="' + (o.s || 20) + '" height="' + (o.s || 20) + '" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="' + (o.w || 2) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>';
+  }
+  /* typographie française : U.esc applique déjà les espaces insécables (« », ? ! : ;) */
+  var fr = esc;
+
   /* ---------- gabarits ---------- */
-  var band = function (inner) { return '<header class="topband"><div class="topband-in">' + inner + '</div></header>'; };
+  var page = function (top, main, cls) { return '<div class="page ' + (cls || '') + '">' + top + '<main class="stage">' + main + '</main></div>'; };
+  var topBadge = function (txt) { return '<header class="top"><span class="badge"><i></i>' + esc(txt) + '</span></header>'; };
+  var sec = function (titre, sous, corps, cls) {
+    return '<section class="sec ' + (cls || '') + '">' + (titre ? '<h2>' + titre + '</h2>' : '') + (sous ? '<p class="sous">' + sous + '</p>' : '') + corps + '</section>';
+  };
 
   function vAccueil() {
     var ph = theme.phases[phase];
-    return band('<div class="topline"><span class="badge">' + esc(ph.badge) + '</span></div>') +
-      '<main class="stage"><section class="card enter">' +
-      (configure ? '' : '<div class="banner test"><b>Mode test.</b> Le script Google n’est pas configuré : vous pouvez tout essayer, mais rien n’est envoyé.</div>') +
-      '<p class="eyebrow">' + esc(theme.titre) + '</p>' +
-      '<h1 style="margin-top:8px">' + esc(ph.titre) + '</h1><p class="lead">' + esc(ph.texte) + '</p>' +
-      '<div class="chips"><span class="chip">⏱ ' + esc(theme.duree) + '</span><span class="chip">' + Q.length + ' questions</span><span class="chip">Sans note ni classement</span></div>' +
+    var ech = theme.echelles[phase === 'apres' ? 'intention' : 'frequence'];
+    var m = /^(\d+)\s*(.*)$/.exec(theme.duree || '');
+    var duree = m ? '<b>' + esc(m[1]) + '</b><span>' + esc(m[2]) + '</span>' : '<span>' + esc(theme.duree || '') + '</span>';
+    var legende = ech.map(function (l, k) { return '<div>' + U.dots(k + 1, 4, 'mini') + '<span>' + esc(l) + '</span></div>'; }).join('');
+    return page(topBadge(ph.badge),
+      (configure ? '' : '<div class="banner" style="margin-top:20px"><b>Mode test.</b> Le script Google n’est pas configuré : vous pouvez tout essayer, mais rien n’est envoyé.</div>') +
+      '<h1>' + fr(ph.titre) + '</h1><p class="lead">' + fr(ph.texte) + '</p>' +
+      '<div class="legende" aria-hidden="true">' + legende + '</div>' +
+      '<div class="bande"><div>' + duree + '</div><div><b>' + Q.length + '</b><span>questions</span></div><div>Sans note ni classement</div></div>' +
       '<label class="field" for="prenom">Votre prénom</label>' +
       '<input type="text" id="prenom" maxlength="40" autocomplete="given-name" placeholder="Par exemple : Camille" value="' + esc(st.prenom) + '">' +
       (groupeUrl ? '<p class="hint">Groupe : <b>' + esc(groupeUrl) + '</b></p>'
                  : '<label class="field" for="groupe">Groupe (facultatif)</label><input type="text" id="groupe" maxlength="40" value="' + esc(st.groupe) + '">') +
-      '<button class="btn block" id="go" style="margin-top:26px" disabled>Commencer</button>' +
-      '<p class="hint centre">Vos réponses individuelles restent entre vous et le formateur.</p>' +
-      '</section></main>';
+      '<div class="cta"><button type="button" class="btn block" id="go" disabled>Commencer ' + svg(D.droite) + '</button>' +
+      '<p class="hint">Vos réponses individuelles restent entre vous et le formateur.</p></div>', 'accueil');
   }
 
   function vQuestion() {
     var q = Q[st.i], n = Q.length, val = st.rep[q.id], corps;
     if (q.type === 'texte') {
-      corps = '<textarea id="txt" maxlength="300" placeholder="' + esc(q.placeholder) + '">' + esc(val || '') + '</textarea>';
+      corps = '<div class="opts"><textarea id="txt" maxlength="300" aria-label="' + esc(q.court) + '" placeholder="' + esc(q.placeholder) + '">' + esc(val || '') + '</textarea></div>';
     } else {
       corps = '<div class="opts" role="radiogroup" aria-label="Réponses">' + q.options.map(function (o, k) {
-        var sel = String(val) === String(o.id);
-        var lead = q.type === 'echelle' ? U.dots(k + 1, 4)
-          : '<span class="lt">' + (q.type === 'vraifaux' ? ['✓', '✕', '?'][k] : String.fromCharCode(65 + k)) + '</span>';
-        return '<button type="button" class="opt' + (sel ? ' sel' : '') + '" role="radio" aria-checked="' + sel + '" data-v="' + esc(o.id) + '">' +
-          lead + '<span>' + esc(o.texte) + '</span></button>';
+        var sel = String(val) === String(o.id), lead;
+        if (q.type === 'echelle') lead = U.dots(k + 1, 4);
+        else if (q.type === 'vraifaux') lead = '<span class="lt">' + ['<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + D.check + '"/></svg>',
+          '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + D.croix + '"/></svg>', '?'][k] + '</span>';
+        else lead = '<span class="lt">' + String.fromCharCode(65 + k) + '</span>';
+        return '<button type="button" class="opt ' + q.type + (sel ? ' sel' : '') + '" role="radio" aria-checked="' + sel + '" data-v="' + esc(o.id) + '">' +
+          lead + '<span class="t">' + fr(o.texte) + '</span>' + svg(D.check, { c: 'ck', w: 2.4 }) + '</button>';
       }).join('') + '</div>';
     }
     var suivant = '';
-    if (q.type === 'texte') suivant = '<button class="btn" data-act="fin">Terminer</button>';
-    else if (val !== undefined) suivant = '<button class="link" data-act="suivant">Suivant →</button>';
-    return band('<div class="topline"><span class="badge">' + esc(q.blocTitre) + '</span><span class="count">' + (st.i + 1) + ' / ' + n + '</span></div>' +
-        '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + st.i + '"><i style="width:' + lastPct + '%"></i></div>') +
-      '<main class="stage"><section class="card enter" id="carte">' +
-      (q.blocIntro ? '<p class="bloc-intro">' + esc(q.blocIntro) + '</p>' : '') +
-      (q.contexte ? '<blockquote class="contexte">' + esc(q.contexte) + '</blockquote>' : '') +
-      '<h2 class="q">' + esc(q.texte) + '</h2>' + corps +
-      '<div class="nav"><span>' + (st.i > 0 ? '<button class="link" data-act="retour">← Retour</button>' : '') + '</span>' + suivant + '</div>' +
-      '</section></main>';
+    if (q.type === 'texte') suivant = '<button type="button" class="btn" data-act="fin">Terminer</button>';
+    else if (val !== undefined) suivant = '<button type="button" class="btn ghost" data-act="suivant">Suivant ' + svg(D.droite) + '</button>';
+    var top = '<header class="top"><div class="top-row">' +
+      (st.i > 0 ? '<button type="button" class="back" data-act="retour">' + svg(D.gauche) + 'Retour</button>' : '<span></span>') +
+      '<span class="count"><b>' + (st.i + 1) + '</b>&nbsp;/&nbsp;' + n + '</span></div>' +
+      '<div class="progress" role="progressbar" aria-label="Progression" aria-valuemin="0" aria-valuemax="' + n + '" aria-valuenow="' + (st.i + 1) + '"><i style="width:' + lastPct + '%"></i></div></header>';
+    return page(top,
+      '<p class="bloc">' + esc(q.blocTitre) + '</p>' +
+      (q.blocIntro ? '<p class="consigne">' + fr(q.blocIntro) + '</p>' : '') +
+      (q.contexte ? '<div class="situation"><p class="lbl">La situation</p><p>' + fr(q.contexte) + '</p></div>' : '') +
+      '<h1 class="q">' + fr(q.texte) + '</h1>' + corps +
+      '<div class="nav">' + suivant + '</div>', 'question');
   }
 
   /* ---------- résultats ---------- */
@@ -72,8 +99,8 @@
     var e = st.envoi.etat;
     if (e === 'test') return '<span class="statut">Mode test · réponses non envoyées</span>';
     if (e === 'envoi' || e === 'idle') return '<span class="statut">Envoi en cours…</span>';
-    if (e === 'echec') return '<span class="statut err">Non transmis · <button data-act="renvoyer">Réessayer</button></span>';
-    return '<span class="statut ok">✓ Réponses transmises</span>';
+    if (e === 'echec') return '<span class="statut err">Non transmis · <button type="button" data-act="renvoyer">Réessayer</button></span>';
+    return '<span class="statut ok">' + svg(D.check, { s: 16, w: 2.4 }) + 'Réponses transmises</span>';
   }
   function majStatut() { var s = document.getElementById('statut'); if (s) s.innerHTML = statutHtml(); }
 
@@ -84,25 +111,22 @@
     var sc = U.scores(theme, st.rep), pq = pratiquesQ(), conf = sc.confiance;
     var max = pq.reduce(function (a, q) { return st.rep[q.id] > st.rep[a.id] ? q : a; }, pq[0]);
     var min = pq.reduce(function (a, q) { return st.rep[q.id] < st.rep[a.id] ? q : a; }, pq[0]);
-    var rows = pq.map(function (q) {
-      return '<div class="rowd"><span class="lbl">' + esc(q.court) + '</span><span class="val">' + U.dots(st.rep[q.id], 4, 'big') + '<br>' + esc(scalesLabel(q, st.rep[q.id])) + '</span></div>';
-    }).join('');
+    var rows = '<div class="prats">' + pq.map(function (q) {
+      return '<div class="prat"><p class="l">' + esc(q.court) + '</p><div class="line">' + U.dots(st.rep[q.id], 4, 'grey big') + '<span class="lab">' + esc(scalesLabel(q, st.rep[q.id])) + '</span></div></div>';
+    }).join('') + '</div>';
     var insights = (st.rep[max.id] !== st.rep[min.id]) ?
-      '<div class="insights"><div class="insight fort"><b>Votre habitude la plus ancrée</b>' + esc(max.court) + '</div>' +
-      '<div class="insight piste"><b>Votre terrain d’exploration</b>' + esc(min.court) + '</div></div>' : '';
-    return band('<div class="topline"><span class="badge">' + esc(theme.phases.avant.badge) + '</span></div>') +
-      '<main class="stage">' +
-      '<section class="hero-res card enter"><p class="eyebrow">Merci ' + esc(st.prenom.trim()) + ' !</p><h1 style="margin-top:6px">' + esc(theme.phases.avant.merci) + '</h1>' +
+      '<div class="insights"><div class="insight"><b>Votre habitude la plus ancrée</b>' + esc(max.court) + '</div>' +
+      '<div class="insight"><b>Votre terrain d’exploration</b>' + esc(min.court) + '</div></div>' : '';
+    var confiance = '<div class="compare"><div class="crow"><span class="tag">Départ</span><div class="meter"><i class="m-avant" data-w="' + Math.round((conf - 1) / 3 * 100) + '"></i></div><span class="num">' + U.f1(conf) + '</span></div></div>' +
+      '<p class="sous" style="margin-top:14px">Échelle de 1 à 4 · en moyenne : ' + fr('« ' + U.etiquette(theme, 'accord', conf) + ' ».') + '</p>';
+    return page(topBadge(theme.phases.avant.badge),
+      '<section class="hero"><p class="salut">' + fr('Merci ' + st.prenom.trim() + ' !') + '</p><h1>' + fr(theme.phases.avant.merci) + '</h1>' +
       '<p class="lead">Une photo de départ, sans jugement : elle sert de repère pour mesurer ce qui va bouger.</p><div id="statut">' + statutHtml() + '</div></section>' +
-      '<section class="card enter"><h2 class="titre-carte"><span class="pastille">🧭</span>Vos pratiques aujourd’hui</h2><p class="muted small">Ce que vous faites déjà, à votre rythme.</p>' + rows + insights + '</section>' +
-      '<section class="card enter"><h2 class="titre-carte"><span class="pastille">💪</span>Votre confiance</h2>' +
-      '<div class="compare"><div class="crow"><span class="tag">Départ</span><div class="meter"><i class="m-apres" data-w="' + Math.round((conf - 1) / 3 * 100) + '"></i></div><span class="num">' + U.f1(conf) + ' / 4</span></div></div>' +
-      '<p class="muted small" style="margin-top:10px">En moyenne : « ' + esc(U.etiquette(theme, 'accord', conf)) + ' ».</p></section>' +
-      '<section class="card enter"><h2 class="titre-carte"><span class="pastille">🔒</span>Vos connaissances</h2>' +
-      '<div class="locked"><span class="cadenas">🔐</span><div><b>Résultat dévoilé après la séquence.</b><p class="muted small" style="margin-top:4px">' +
-      connQ().length + ' questions vous ont fait réfléchir. Gardez en tête celles qui vous ont fait hésiter : les réponses expliquées vous attendent.</p></div></div></section>' +
-      '<p class="footnote">Rendez-vous après la séquence : scannez le QR code « Après » avec <b>ce même appareil</b>, vos réponses y sont conservées.</p>' +
-      '</main>';
+      sec('Vos pratiques aujourd’hui', 'Ce que vous faites déjà, à votre rythme.', rows + insights) +
+      sec('Votre confiance', '', confiance) +
+      sec('Vos connaissances', '', '<div class="locked">' + svg(D.cadenas, { s: 22 }) + '<div><b>Résultat dévoilé après la séquence.</b><p>' +
+        connQ().length + ' questions vous ont fait réfléchir. Gardez en tête celles qui vous ont fait hésiter : les réponses expliquées vous attendent.</p></div></div>') +
+      '<p class="footnote">Rendez-vous après la séquence : scannez le QR code « Après » avec <b>ce même appareil</b>, vos réponses y sont conservées.</p>', 'resultat');
   }
 
   function statutQ(q, av, ap) {
@@ -117,44 +141,46 @@
     var av = st.avant ? st.avant.rep : null;
     var sc = U.scores(theme, st.rep), sa = av ? U.scores(theme, av) : null;
     var tot = sc.connaissances.total, ok = sc.connaissances.ok, ok0 = sa ? sa.connaissances.ok : ok, gain = ok - ok0;
-    var big = '<div class="big-gain">' + (sa ? '<span class="from">' + ok0 + '</span><span class="arrow">→</span>' : '') +
+    var big = '<div class="gain-big" role="group" aria-label="Bonnes réponses : ' + (sa ? ok0 + ' avant, ' : '') + ok + ' après, sur ' + tot + '">' +
+      (sa ? '<span class="from">' + ok0 + '</span>' + svg(D.fleche, { s: 28, w: 1.8, c: 'arrow' }) : '') +
       '<span class="to" id="cnt" data-from="' + (sa ? ok0 : 0) + '" data-to="' + ok + '">' + (sa ? ok0 : 0) + '</span>' +
       (sa && gain > 0 ? '<span class="plus">+' + gain + '</span>' : '') + '</div>' +
-      '<p class="muted small centre">bonnes réponses sur ' + tot + (sa ? '' : ' · test « avant » non retrouvé sur cet appareil') + '</p>';
+      '<p class="sous">bonnes réponses sur ' + tot + (sa ? '' : ' · test « avant » non retrouvé sur cet appareil') + '</p>';
 
     var confA = sa ? sa.confiance : null, confB = sc.confiance;
     var confBloc = '<div class="compare">' +
       (sa ? '<div class="crow"><span class="tag">Avant</span><div class="meter"><i class="m-avant" data-w="' + Math.round((confA - 1) / 3 * 100) + '"></i></div><span class="num">' + U.f1(confA) + '</span></div>' : '') +
-      '<div class="crow"><span class="tag">Après</span><div class="meter"><i class="m-apres" data-w="' + Math.round((confB - 1) / 3 * 100) + '"></i></div><span class="num">' + U.f1(confB) + '</span></div></div>' +
-      '<p class="muted small" style="margin-top:10px">Échelle de 1 à 4 · ' + (sa ? 'avant : « ' + esc(U.etiquette(theme, 'accord', confA)) + ' », ' : '') + 'après : « ' + esc(U.etiquette(theme, 'accord', confB)) + ' ».</p>';
+      '<div class="crow"><span class="tag ap">Après</span><div class="meter"><i class="m-apres" data-w="' + Math.round((confB - 1) / 3 * 100) + '"></i></div><span class="num">' + U.f1(confB) + '</span></div></div>' +
+      '<p class="sous" style="margin-top:14px">Échelle de 1 à 4 · ' + (sa ? fr('avant : « ' + U.etiquette(theme, 'accord', confA) + ' », ') : '') + fr('après : « ' + U.etiquette(theme, 'accord', confB) + ' ».') + '</p>';
 
-    var prat = pratiquesQ().map(function (q) {
+    var prat = '<div class="prats">' + pratiquesQ().map(function (q) {
       var a = av ? av[q.id] : null, b = st.rep[q.id];
-      return '<div class="rowd"><span class="lbl">' + esc(q.court) + '</span><span class="val">' + (a ? U.dots(a, 4, 'grey big') + ' → ' : '') + U.dots(b, 4, 'big') + '<br>' + esc(U.etiquette(theme, 'intention', b)) + '</span></div>';
-    }).join('');
+      return '<div class="prat"><p class="l">' + esc(q.court) + '</p><div class="line">' + (a ? U.dots(a, 4, 'grey big') + svg(D.fleche, { s: 16 }) : '') +
+        U.dots(b, 4, 'big') + '<span class="lab">' + esc(U.etiquette(theme, 'intention', b)) + '</span></div></div>';
+    }).join('') + '</div>';
 
-    var detail = connQ().map(function (q) {
-      var a = av ? av[q.id] : undefined, b = st.rep[q.id], s = statutQ(q, a, b);
+    var detail = '<div class="items">' + connQ().map(function (q) {
+      var a = av ? av[q.id] : undefined, b = st.rep[q.id], s = statutQ(q, a, b), juste = String(b) === String(q.bonne);
       var qq = Q.filter(function (x) { return x.id === q.id; })[0] || q;
-      return '<details class="item"><summary><span>' + esc(q.court) + '</span><span class="st ' + s.c + '">' + s.t + '</span></summary><div class="corps">' +
-        (q.contexte ? '<p class="muted">' + esc(q.contexte) + '</p>' : '') + '<p><b>' + esc(q.texte) + '</b></p>' +
-        (a !== undefined ? '<p>Avant : ' + esc(texteOption(qq, a)) + '</p>' : '') + '<p>Après : ' + esc(texteOption(qq, b)) + '</p>' +
-        '<div class="bonne"><b>Bonne réponse :</b> ' + esc(texteOption(qq, q.bonne)) + '<p>' + esc(q.explication) + '</p></div></div></details>';
-    }).join('');
+      return '<details class="item"><summary><span class="sum"><span class="nom">' + esc(q.court) + '</span><span class="st ' + s.c + '">' + s.t + '</span></span>' + svg(D.bas, { c: 'chev' }) + '</summary><div class="corps">' +
+        (q.contexte ? '<p class="ctx">' + fr(q.contexte) + '</p>' : '') + '<p class="enonce">' + fr(q.texte) + '</p>' +
+        (a !== undefined ? '<div class="rep"><i class="pt av"></i><p><b class="av">Avant :</b> ' + fr(texteOption(qq, a)) + '</p></div>' : '') +
+        '<div class="rep"><i class="pt ap"></i><div><p><b class="ap">Après :</b> ' + fr(texteOption(qq, b)) + '</p>' +
+          (juste ? '<span class="bonne">' + svg(D.check, { s: 14, w: 2.6 }) + 'Bonne réponse</span>' : '') + '</div></div>' +
+        (juste ? '' : '<p class="bonne-ligne"><b>Bonne réponse :</b> ' + fr(texteOption(qq, q.bonne)) + '</p>') +
+        '<p class="explic">' + fr(q.explication) + '</p></div></details>';
+    }).join('') + '</div>';
 
     var eng = (st.rep.x3 || '').trim();
-    return band('<div class="topline"><span class="badge">' + esc(theme.phases.apres.badge) + '</span></div>') +
-      '<main class="stage">' +
-      '<section class="hero-res card enter"><p class="eyebrow">Bravo ' + esc(st.prenom.trim()) + ' !</p><h1 style="margin-top:6px">' + esc(theme.phases.apres.merci) + '</h1>' +
-      big + '<div id="statut">' + statutHtml() + '</div></section>' +
-      '<section class="card enter"><h2 class="titre-carte"><span class="pastille">💪</span>Votre confiance</h2>' + confBloc + '</section>' +
-      '<section class="card enter"><h2 class="titre-carte"><span class="pastille">🧭</span>Vos pratiques : ' + (av ? 'aujourd’hui → je vise' : 'ce que je vise') + '</h2>' +
-      '<p class="muted small">Points gris : avant · points violets : ce que vous visez dans deux semaines.</p>' + prat + '</section>' +
-      '<section class="card enter"><h2 class="titre-carte"><span class="pastille">💡</span>Les situations en détail</h2><p class="muted small">Touchez une situation pour voir la réponse expliquée.</p>' + detail + '</section>' +
-      (eng ? '<section class="card enter"><h2 class="titre-carte"><span class="pastille">🎯</span>Mon premier pas</h2><div class="engagement">« ' + esc(eng) + ' »</div></section>' : '') +
-      '<section class="card enter centre"><h2>Votre fiche personnelle</h2><p class="muted small" style="margin:6px 0 18px">Une fiche A4 avec votre progression et les réponses expliquées, à conserver.</p>' +
-      '<button class="btn" id="pdf">⬇ Télécharger ma fiche (PDF)</button></section>' +
-      '</main>';
+    return page(topBadge(theme.phases.apres.badge),
+      '<section class="hero"><p class="salut">' + fr('Bravo ' + st.prenom.trim() + ' !') + '</p><h1>' + fr(theme.phases.apres.merci) + '</h1></section>' +
+      sec('', '', big + '<div id="statut">' + statutHtml() + '</div>', 'gain-sec') +
+      sec('Votre confiance', '', confBloc) +
+      sec(fr('Vos pratiques : ' + (av ? 'aujourd’hui → je vise' : 'ce que je vise')), 'Pastilles grises : avant · pastilles indigo : ce que vous visez dans deux semaines.', prat) +
+      sec('Les situations en détail', 'Touchez une situation pour voir la réponse expliquée.', detail) +
+      (eng ? sec('Mon premier pas', '', '<blockquote class="engagement">«\u00a0' + esc(eng) + '\u00a0»</blockquote>') : '') +
+      sec('Votre fiche personnelle', 'Une fiche A4 avec votre progression et les réponses expliquées, à conserver.',
+        '<button type="button" class="btn block pdf-btn" id="pdf">' + svg(D.dl) + 'Télécharger ma fiche (PDF)</button>'), 'resultat');
   }
 
   /* ---------- rendu ---------- */
@@ -216,11 +242,11 @@
     var t = e.target.closest('button'); if (!t) return;
     if (t.classList.contains('opt')) return choisir(t.dataset.v, t);
     if (t.id === 'go') return demarrer();
-    if (t.id === 'pdf') { t.disabled = true; t.textContent = 'Préparation…';
+    if (t.id === 'pdf') { var libelle = t.innerHTML; t.disabled = true; t.textContent = 'Préparation…';
       window.PDFKit.fiche({ theme: theme, prenom: st.prenom, groupe: st.groupe, questions: Q, avant: st.avant ? st.avant.rep : null, apres: st.rep })
         .then(function (doc) { doc.save('fiche-' + themeId + '-' + U.norm(st.prenom).replace(/[^a-z0-9]+/g, '-') + '.pdf'); })
         .catch(function (err) { alert('Fiche PDF indisponible : ' + err.message); })
-        .then(function () { t.disabled = false; t.textContent = '⬇ Télécharger ma fiche (PDF)'; });
+        .then(function () { t.disabled = false; t.innerHTML = libelle; });
       return; }
     var a = t.dataset.act;
     if (a === 'retour') { clearTimeout(timer); st.i = Math.max(0, st.i - 1); render(); }
@@ -255,5 +281,5 @@
       st.screen = 'question'; lastPct = Math.round(st.i / Q.length * 100);
     }
     render();
-  }).catch(function (e) { app.innerHTML = '<main class="stage" style="margin-top:40px"><section class="card"><h2>Oups</h2><p class="muted">' + esc(e.message) + '</p></section></main>'; });
+  }).catch(function (e) { app.innerHTML = '<div class="page"><main class="stage"><section class="sec"><h2>Oups</h2><p class="muted">' + esc(e.message) + '</p></section></main></div>'; });
 })();
